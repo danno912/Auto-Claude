@@ -10,6 +10,8 @@ import {
   createProfile,
   updateProfile,
   getAPIProfileEnv,
+  getAPIProfileEnvById,
+  getPhaseAPIProfileEnv,
   testConnection,
   discoverModels
 } from './profile-service';
@@ -633,6 +635,92 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
         ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+      });
+    });
+  });
+
+  describe('getAPIProfileEnvById', () => {
+    it('should return empty object when profile ID is not found', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('./profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnvById('missing-id');
+      expect(result).toEqual({});
+    });
+
+    it('should return env vars for the requested profile ID', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'GLM',
+            baseUrl: 'https://api.z.ai/api/anthropic',
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: 'glm-4'
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('./profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnvById('profile-1');
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
+        ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
+        ANTHROPIC_MODEL: 'glm-4'
+      });
+    });
+  });
+
+  describe('getPhaseAPIProfileEnv', () => {
+    it('should return empty object when no phase profiles provided', async () => {
+      const result = await getPhaseAPIProfileEnv(undefined);
+      expect(result).toEqual({});
+    });
+
+    it('should map phase-specific profiles to suffixed env vars', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'glm-profile',
+            name: 'GLM',
+            baseUrl: 'https://api.z.ai/api/anthropic',
+            apiKey: 'sk-test-key-12345678',
+            models: {
+              default: 'glm-4'
+            },
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: null,
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('./profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getPhaseAPIProfileEnv({
+        coding: 'glm-profile'
+      });
+
+      expect(result).toEqual({
+        ANTHROPIC_BASE_URL_CODING: 'https://api.z.ai/api/anthropic',
+        ANTHROPIC_AUTH_TOKEN_CODING: 'sk-test-key-12345678',
+        ANTHROPIC_MODEL_CODING: 'glm-4'
       });
     });
   });

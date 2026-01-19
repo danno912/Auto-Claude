@@ -61,6 +61,22 @@ SDK_ENV_VARS = [
     "CLAUDE_CODE_GIT_BASH_PATH",
 ]
 
+PHASE_ENV_VARS = [
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+]
+
+PHASE_ENV_SUFFIXES = {
+    "spec": "SPEC",
+    "planning": "PLANNING",
+    "coding": "CODING",
+    "qa": "QA",
+}
+
 
 def is_encrypted_token(token: str | None) -> bool:
     """
@@ -662,23 +678,33 @@ def _find_git_bash_path() -> str | None:
     return None
 
 
-def get_sdk_env_vars() -> dict[str, str]:
+def get_sdk_env_vars(phase: str | None = None) -> dict[str, str]:
     """
     Get environment variables to pass to SDK.
 
     Collects relevant env vars (ANTHROPIC_BASE_URL, etc.) that should
-    be passed through to the claude-agent-sdk subprocess.
+    be passed through to the claude-agent-sdk subprocess. If phase is
+    provided, phase-specific overrides (e.g., ANTHROPIC_BASE_URL_CODING)
+    take precedence over base values.
 
     On Windows, auto-detects CLAUDE_CODE_GIT_BASH_PATH if not already set.
 
     Returns:
         Dict of env var name -> value for non-empty vars
     """
-    env = {}
+    env: dict[str, str] = {}
     for var in SDK_ENV_VARS:
         value = os.environ.get(var)
         if value:
             env[var] = value
+
+    if phase:
+        suffix = PHASE_ENV_SUFFIXES.get(phase)
+        if suffix:
+            for var in PHASE_ENV_VARS:
+                phase_value = os.environ.get(f"{var}_{suffix}")
+                if phase_value:
+                    env[var] = phase_value
 
     # On Windows, auto-detect git-bash path if not already set
     # Claude Code CLI requires bash.exe to run on Windows

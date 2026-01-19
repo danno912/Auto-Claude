@@ -34,7 +34,7 @@ import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
-import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
+import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel, PhaseApiProfileConfig } from '../../shared/types';
 import {
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
@@ -60,7 +60,7 @@ interface TaskEditDialogProps {
 export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDialogProps) {
   const { t } = useTranslation(['tasks', 'common']);
   // Get selected agent profile from settings for defaults
-  const { settings } = useSettingsStore();
+  const { settings, profiles, activeProfileId } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -103,6 +103,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
     task.metadata?.phaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
   );
+  const [phaseApiProfiles, setPhaseApiProfiles] = useState<PhaseApiProfileConfig | undefined>(
+    task.metadata?.phaseApiProfiles
+  );
 
   // Image attachments
   const [images, setImages] = useState<ImageAttachment[]>(task.metadata?.attachedImages || []);
@@ -133,6 +136,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         setThinkingLevel(taskThinking || selectedProfile.thinkingLevel);
         setPhaseModels(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseApiProfiles(task.metadata?.phaseApiProfiles);
       } else if (taskModel && taskThinking) {
         const matchingProfile = DEFAULT_AGENT_PROFILES.find(
           p => p.model === taskModel && p.thinkingLevel === taskThinking && !p.isAutoProfile
@@ -142,12 +146,14 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         setThinkingLevel(taskThinking);
         setPhaseModels(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseApiProfiles(task.metadata?.phaseApiProfiles);
       } else {
         setProfileId(settings.selectedAgentProfile || 'auto');
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseApiProfiles(task.metadata?.phaseApiProfiles);
       }
 
       setImages(task.metadata?.attachedImages || []);
@@ -198,7 +204,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
       JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
-      JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
+      JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING) ||
+      JSON.stringify(phaseApiProfiles || {}) !== JSON.stringify(task.metadata?.phaseApiProfiles || {});
 
     if (!hasChanges) {
       onOpenChange(false);
@@ -220,6 +227,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       metadataUpdates.isAutoProfile = profileId === 'auto';
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
+    }
+    if (phaseApiProfiles || task.metadata?.phaseApiProfiles) {
+      metadataUpdates.phaseApiProfiles = phaseApiProfiles || {};
     }
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
@@ -278,6 +288,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         thinkingLevel={thinkingLevel}
         phaseModels={phaseModels}
         phaseThinking={phaseThinking}
+        phaseApiProfiles={phaseApiProfiles}
+        apiProfiles={profiles}
+        activeApiProfileId={activeProfileId}
         onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
           setProfileId(newProfileId);
           setModel(newModel);
@@ -287,6 +300,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onThinkingLevelChange={setThinkingLevel}
         onPhaseModelsChange={setPhaseModels}
         onPhaseThinkingChange={setPhaseThinking}
+        onPhaseApiProfilesChange={setPhaseApiProfiles}
         category={category}
         priority={priority}
         complexity={complexity}

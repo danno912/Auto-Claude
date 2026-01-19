@@ -124,7 +124,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
     return (
       <div className="space-y-8">
         {/* Agent Profile Selection */}
-        <AgentProfileSettings />
+        <AgentProfileSettings settings={settings} onSettingsChange={onSettingsChange} />
 
         {/* Other Agent Settings */}
         <SettingsSection

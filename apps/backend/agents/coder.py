@@ -289,6 +289,7 @@ async def run_autonomous_agent(
             phase_model,
             agent_type="planner" if first_run else "coder",
             max_thinking_tokens=phase_thinking_budget,
+            phase=current_phase,
         )
 
         # Generate appropriate prompt

@@ -42,6 +42,7 @@ import {
 } from '../ui/full-screen-dialog';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
+import { ErrorBoundary } from '../ui/error-boundary';
 import { cn } from '../../lib/utils';
 import { useSettings } from './hooks/useSettings';
 import { ThemeSettings } from './ThemeSettings';
@@ -209,7 +210,11 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
 
   const renderContent = () => {
     if (activeTopLevel === 'app') {
-      return renderAppSection();
+      return (
+        <ErrorBoundary>
+          {renderAppSection()}
+        </ErrorBoundary>
+      );
     }
     return (
       <ProjectSettingsContent

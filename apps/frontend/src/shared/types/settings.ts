@@ -3,6 +3,7 @@
  */
 
 import type { NotificationSettings, GraphitiEmbeddingProvider } from './project';
+import type { PhaseApiProfileConfig } from './task';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 
@@ -258,6 +259,7 @@ export interface AppSettings {
   // Custom phase configuration for Auto profile (overrides defaults)
   customPhaseModels?: PhaseModelConfig;
   customPhaseThinking?: PhaseThinkingConfig;
+  customPhaseApiProfiles?: PhaseApiProfileConfig;
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;

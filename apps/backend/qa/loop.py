@@ -149,6 +149,7 @@ async def run_qa_validation_loop(
             qa_model,
             agent_type="qa_fixer",
             max_thinking_tokens=fixer_thinking_budget,
+            phase="qa",
         )
 
         async with fix_client:
@@ -232,6 +233,7 @@ async def run_qa_validation_loop(
             qa_model,
             agent_type="qa_reviewer",
             max_thinking_tokens=qa_thinking_budget,
+            phase="qa",
         )
 
         async with client:
@@ -390,6 +392,7 @@ async def run_qa_validation_loop(
                 qa_model,
                 agent_type="qa_fixer",
                 max_thinking_tokens=fixer_thinking_budget,
+                phase="qa",
             )
 
             async with fix_client:

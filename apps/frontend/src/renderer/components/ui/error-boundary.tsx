@@ -13,6 +13,7 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
+  componentStack?: string;
 }
 
 /**
@@ -22,7 +23,7 @@ interface ErrorBoundaryState {
 export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, componentStack: undefined };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -30,16 +31,18 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error('ErrorBoundary caught an error:', error, errorInfo.componentStack);
 
     // Report to Sentry with React component stack
     captureException(error, {
       componentStack: errorInfo.componentStack,
     });
+
+    this.setState({ componentStack: errorInfo.componentStack });
   }
 
   handleReset = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, componentStack: undefined });
     this.props.onReset?.();
   };
 
@@ -63,6 +66,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
                   <p className="text-xs text-muted-foreground font-mono bg-muted p-2 rounded max-w-md overflow-auto">
                     {this.state.error.message}
                   </p>
+                )}
+                {this.state.componentStack && (
+                  <pre className="text-[10px] text-muted-foreground font-mono bg-muted p-2 rounded max-w-md overflow-auto">
+                    {this.state.componentStack.trim()}
+                  </pre>
                 )}
               </div>
               <Button onClick={this.handleReset} variant="outline" size="sm">

@@ -200,6 +200,19 @@
     "classificationOptional": "Classification (optionnel)",
     "requireReviewLabel": "Exiger une révision humaine avant le codage",
     "requireReviewDescription": "Lorsque activé, vous serez invité à réviser la spécification et le plan d'implémentation avant le début de la phase de codage. Cela vous permet d'approuver, de demander des modifications ou de fournir des commentaires.",
+    "apiProfiles": {
+      "title": "Substitutions de profils API par phase",
+      "description": "Remplace le profil API actif pour des phases spécifiques. Laissez sur le profil actif pour hériter du choix global.",
+      "useActive": "Utiliser le profil actif",
+      "activeProfile": "Profil actif ({{name}})",
+      "noProfiles": "Aucun profil API configuré dans les paramètres.",
+      "phase": {
+        "spec": "Spécification",
+        "planning": "Planification",
+        "coding": "Codage",
+        "qa": "QA"
+      }
+    },
     "errors": {
       "descriptionRequired": "Veuillez fournir une description",
       "maxImagesReached": "Maximum de 5 images autorisé",

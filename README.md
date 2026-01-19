@@ -100,6 +100,7 @@ AI-powered terminals with one-click task context injection. Spawn multiple agent
 
 ### Roadmap
 AI-assisted feature planning with competitor analysis and audience targeting.
+Planned: restore live API profile updates in Agent Settings without settings-store loops.
 
 ![Roadmap](.github/assets/Auto-Claude-roadmap.png)
 

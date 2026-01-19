@@ -373,6 +373,13 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "apiProfiles": {
+      "title": "Substitutions de profils API par phase",
+      "description": "Définissez les profils API par défaut pour chaque phase. Les tâches peuvent les remplacer dans l'assistant de création.",
+      "useActive": "Utiliser le profil actif",
+      "activeProfile": "Profil actif ({{name}})",
+      "noProfiles": "Aucun profil API configuré."
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",

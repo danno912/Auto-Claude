@@ -373,6 +373,13 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "apiProfiles": {
+      "title": "Phase API profile overrides",
+      "description": "Set default API profiles per phase. Tasks can override these in the creation wizard.",
+      "useActive": "Use active profile",
+      "activeProfile": "Active profile ({{name}})",
+      "noProfiles": "No API profiles configured yet."
+    },
     "phases": {
       "spec": {
         "label": "Spec Creation",

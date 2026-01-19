@@ -66,6 +66,13 @@ export interface SpecCreationMetadata {
     coding: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
     qa: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
   };
+  // Per-phase API profile overrides (optional)
+  phaseApiProfiles?: {
+    spec?: string;
+    planning?: string;
+    coding?: string;
+    qa?: string;
+  };
   // Non-auto profile - single model and thinking level
   model?: 'haiku' | 'sonnet' | 'opus';
   thinkingLevel?: 'none' | 'low' | 'medium' | 'high' | 'ultrathink';

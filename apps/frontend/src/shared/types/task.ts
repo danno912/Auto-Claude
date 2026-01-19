@@ -151,6 +151,8 @@ export interface TaskDraft {
   // Auto profile - per-phase configuration
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
+  // Per-phase API profile overrides
+  phaseApiProfiles?: PhaseApiProfileConfig;
   images: ImageAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
@@ -174,6 +176,13 @@ export type TaskCategory =
   | 'ui_ux'
   | 'infrastructure'
   | 'testing';
+
+export interface PhaseApiProfileConfig {
+  spec?: string;
+  planning?: string;
+  coding?: string;
+  qa?: string;
+}
 
 export interface TaskMetadata {
   // Origin tracking
@@ -232,6 +241,8 @@ export interface TaskMetadata {
   isAutoProfile?: boolean;  // True when using Auto (Optimized) profile
   phaseModels?: PhaseModelConfig;  // Per-phase model configuration
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
+  // Per-phase API profile overrides (optional)
+  phaseApiProfiles?: PhaseApiProfileConfig;
 
   // Git/Worktree configuration
   baseBranch?: string;  // Override base branch for this task's worktree

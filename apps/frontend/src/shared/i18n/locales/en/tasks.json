@@ -200,6 +200,19 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "apiProfiles": {
+      "title": "Phase API profile overrides",
+      "description": "Override the active API profile for specific phases. Leave set to the active profile to inherit the global choice.",
+      "useActive": "Use active profile",
+      "activeProfile": "Active profile ({{name}})",
+      "noProfiles": "No API profiles configured in settings.",
+      "phase": {
+        "spec": "Spec",
+        "planning": "Planning",
+        "coding": "Coding",
+        "qa": "QA"
+      }
+    },
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",

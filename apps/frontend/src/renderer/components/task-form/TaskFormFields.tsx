@@ -16,6 +16,13 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '../ui/select';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload, type FileReferenceData } from './useImageUpload';
@@ -27,9 +34,11 @@ import type {
   TaskImpact,
   ImageAttachment,
   ModelType,
-  ThinkingLevel
+  ThinkingLevel,
+  PhaseApiProfileConfig
 } from '../../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../../shared/types/settings';
+import type { APIProfile } from '@shared/types/profile';
 
 interface TaskFormFieldsProps {
   // Description field
@@ -51,11 +60,15 @@ interface TaskFormFieldsProps {
   thinkingLevel: ThinkingLevel | '';
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
+  phaseApiProfiles?: PhaseApiProfileConfig;
+  apiProfiles?: APIProfile[];
+  activeApiProfileId?: string | null;
   onProfileChange: (profileId: string, model: ModelType | '', thinkingLevel: ThinkingLevel | '') => void;
   onModelChange: (model: ModelType | '') => void;
   onThinkingLevelChange: (level: ThinkingLevel | '') => void;
   onPhaseModelsChange: (config: PhaseModelConfig | undefined) => void;
   onPhaseThinkingChange: (config: PhaseThinkingConfig | undefined) => void;
+  onPhaseApiProfilesChange?: (config: PhaseApiProfileConfig | undefined) => void;
 
   // Classification
   category: TaskCategory | '';
@@ -105,11 +118,15 @@ export function TaskFormFields({
   thinkingLevel,
   phaseModels,
   phaseThinking,
+  phaseApiProfiles,
+  apiProfiles = [],
+  activeApiProfileId,
   onProfileChange,
   onModelChange,
   onThinkingLevelChange,
   onPhaseModelsChange,
   onPhaseThinkingChange,
+  onPhaseApiProfilesChange,
   category,
   priority,
   complexity,
@@ -136,6 +153,24 @@ export function TaskFormFields({
   const internalDescriptionRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = externalDescriptionRef || internalDescriptionRef;
   const prefix = idPrefix ? `${idPrefix}-` : '';
+  const defaultProfileValue = 'default';
+  const hasApiProfiles = apiProfiles.length > 0;
+
+  const updatePhaseApiProfile = (phase: keyof PhaseApiProfileConfig, value: string) => {
+    if (!onPhaseApiProfilesChange) {
+      return;
+    }
+
+    const nextProfiles = { ...(phaseApiProfiles || {}) };
+    if (value === defaultProfileValue) {
+      delete nextProfiles[phase];
+    } else {
+      nextProfiles[phase] = value;
+    }
+
+    const hasOverrides = Object.values(nextProfiles).some(Boolean);
+    onPhaseApiProfilesChange(hasOverrides ? nextProfiles : undefined);
+  };
 
   // Use the shared image upload hook with translated error messages
   const {
@@ -279,6 +314,59 @@ export function TaskFormFields({
         onPhaseThinkingChange={onPhaseThinkingChange}
         disabled={disabled}
       />
+
+      {/* Phase API Profile Overrides */}
+      <div className="space-y-3">
+        <div>
+          <Label className="text-sm font-medium text-foreground">
+            {t('tasks:form.apiProfiles.title')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t('tasks:form.apiProfiles.description')}
+          </p>
+        </div>
+
+        {!hasApiProfiles && (
+          <p className="text-xs text-muted-foreground">
+            {t('tasks:form.apiProfiles.noProfiles')}
+          </p>
+        )}
+
+        {hasApiProfiles && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(['spec', 'planning', 'coding', 'qa'] as const).map((phase) => (
+              <div key={phase} className="space-y-1">
+                <Label htmlFor={`${prefix}api-profile-${phase}`} className="text-xs font-medium text-muted-foreground">
+                  {t(`tasks:form.apiProfiles.phase.${phase}`)}
+                </Label>
+                <Select
+                  value={phaseApiProfiles?.[phase] || defaultProfileValue}
+                  onValueChange={(value) => updatePhaseApiProfile(phase, value)}
+                  disabled={disabled}
+                >
+                  <SelectTrigger id={`${prefix}api-profile-${phase}`} className="h-9">
+                    <SelectValue placeholder={t('tasks:form.apiProfiles.useActive')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={defaultProfileValue}>
+                      {activeApiProfileId
+                        ? t('tasks:form.apiProfiles.activeProfile', {
+                          name: apiProfiles.find((profile) => profile.id === activeApiProfileId)?.name || t('tasks:form.apiProfiles.useActive')
+                        })
+                        : t('tasks:form.apiProfiles.useActive')}
+                    </SelectItem>
+                    {apiProfiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Classification Toggle */}
       <button

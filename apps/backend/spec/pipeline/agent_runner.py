@@ -127,6 +127,7 @@ class AgentRunner:
             self.spec_dir,
             self.model,
             max_thinking_tokens=thinking_budget,
+            phase="spec",
         )
 
         current_tool = None

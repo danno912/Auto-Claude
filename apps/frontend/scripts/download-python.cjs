@@ -236,6 +236,7 @@ function downloadFile(url, destPath) {
     let file = null;
     let redirectCount = 0;
     let currentRequest = null;
+    let settled = false;
 
     const cleanup = () => {
       if (file) {
@@ -254,7 +255,10 @@ function downloadFile(url, destPath) {
     const request = (urlString) => {
       if (++redirectCount > MAX_REDIRECTS) {
         cleanup();
-        reject(new Error(`Too many redirects (max ${MAX_REDIRECTS})`));
+        if (!settled) {
+          settled = true;
+          reject(new Error(`Too many redirects (max ${MAX_REDIRECTS})`));
+        }
         return;
       }
 
@@ -274,7 +278,10 @@ function downloadFile(url, destPath) {
 
         if (response.statusCode !== 200) {
           cleanup();
-          reject(new Error(`Download failed with status ${response.statusCode}`));
+          if (!settled) {
+            settled = true;
+            reject(new Error(`Download failed with status ${response.statusCode}`));
+          }
           return;
         }
 
@@ -296,27 +303,47 @@ function downloadFile(url, destPath) {
         response.pipe(file);
 
         file.on('finish', () => {
-          file.close();
-          file = null;
-          console.log(`[download-python] Download complete: ${destPath}`);
-          resolve();
+          if (settled) {
+            return;
+          }
+          const stream = file;
+          if (!stream) {
+            settled = true;
+            resolve();
+            return;
+          }
+          stream.close(() => {
+            file = null;
+            console.log(`[download-python] Download complete: ${destPath}`);
+            settled = true;
+            resolve();
+          });
         });
 
         file.on('error', (err) => {
           cleanup();
-          reject(err);
+          if (!settled) {
+            settled = true;
+            reject(err);
+          }
         });
       });
 
       currentRequest.on('error', (err) => {
         cleanup();
-        reject(err);
+        if (!settled) {
+          settled = true;
+          reject(err);
+        }
       });
 
       currentRequest.on('timeout', () => {
         currentRequest.destroy();
         cleanup();
-        reject(new Error(`Download timeout after ${DOWNLOAD_TIMEOUT / 1000} seconds`));
+        if (!settled) {
+          settled = true;
+          reject(new Error(`Download timeout after ${DOWNLOAD_TIMEOUT / 1000} seconds`));
+        }
       });
     };
 

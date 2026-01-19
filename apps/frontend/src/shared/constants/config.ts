@@ -1,3 +1,5 @@
+import type { PhaseApiProfileConfig } from '../types';
+
 /**
  * Application configuration constants
  * Default settings, file paths, and project structure
@@ -46,6 +48,8 @@ export const DEFAULT_APP_SETTINGS = {
   globalOpenAIApiKey: undefined as string | undefined,
   // Selected agent profile - defaults to 'auto' for per-phase optimized model selection
   selectedAgentProfile: 'auto',
+  // Optional phase API profile overrides (defaults to active profile)
+  customPhaseApiProfiles: undefined as PhaseApiProfileConfig | undefined,
   // Changelog preferences (persisted between sessions)
   changelogFormat: 'keep-a-changelog' as const,
   changelogAudience: 'user-facing' as const,

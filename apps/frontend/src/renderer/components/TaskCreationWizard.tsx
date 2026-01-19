@@ -24,7 +24,7 @@ import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, PhaseApiProfileConfig } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -48,7 +48,7 @@ export function TaskCreationWizard({
   onOpenChange
 }: TaskCreationWizardProps) {
   const { t } = useTranslation(['tasks', 'common']);
-  const { settings } = useSettingsStore();
+  const { settings, profiles, activeProfileId } = useSettingsStore();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -109,6 +109,9 @@ export function TaskCreationWizard({
   const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
     settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
   );
+  const [phaseApiProfiles, setPhaseApiProfiles] = useState<PhaseApiProfileConfig | undefined>(
+    settings.customPhaseApiProfiles || undefined
+  );
 
   // Images and files
   const [images, setImages] = useState<ImageAttachment[]>([]);
@@ -152,6 +155,7 @@ export function TaskCreationWizard({
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
         setPhaseModels(draft.phaseModels || settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(draft.phaseThinking || settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseApiProfiles(draft.phaseApiProfiles || settings.customPhaseApiProfiles || undefined);
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
@@ -174,6 +178,7 @@ export function TaskCreationWizard({
         setThinkingLevel(selectedProfile.thinkingLevel);
         setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseApiProfiles(settings.customPhaseApiProfiles || undefined);
         setImages([]);
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
@@ -185,7 +190,7 @@ export function TaskCreationWizard({
         setShowGitOptions(false);
       }
     }
-  }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
+  }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, settings.customPhaseApiProfiles, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
   // Fetch branches when dialog opens
   useEffect(() => {
@@ -249,11 +254,12 @@ export function TaskCreationWizard({
     thinkingLevel,
     phaseModels,
     phaseThinking,
+    phaseApiProfiles,
     images,
     referencedFiles,
     requireReviewBeforeCoding,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, phaseApiProfiles, images, referencedFiles, requireReviewBeforeCoding]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -419,6 +425,9 @@ export function TaskCreationWizard({
         metadata.phaseModels = phaseModels;
         metadata.phaseThinking = phaseThinking;
       }
+      if (phaseApiProfiles) {
+        metadata.phaseApiProfiles = phaseApiProfiles;
+      }
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
@@ -460,6 +469,7 @@ export function TaskCreationWizard({
     setThinkingLevel(selectedProfile.thinkingLevel);
     setPhaseModels(settings.customPhaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
     setPhaseThinking(settings.customPhaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+    setPhaseApiProfiles(settings.customPhaseApiProfiles || undefined);
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
@@ -622,6 +632,9 @@ export function TaskCreationWizard({
           thinkingLevel={thinkingLevel}
           phaseModels={phaseModels}
           phaseThinking={phaseThinking}
+          phaseApiProfiles={phaseApiProfiles}
+          apiProfiles={profiles}
+          activeApiProfileId={activeProfileId}
           onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
             setProfileId(newProfileId);
             setModel(newModel);
@@ -631,6 +644,7 @@ export function TaskCreationWizard({
           onThinkingLevelChange={setThinkingLevel}
           onPhaseModelsChange={setPhaseModels}
           onPhaseThinkingChange={setPhaseThinking}
+          onPhaseApiProfilesChange={setPhaseApiProfiles}
           category={category}
           priority={priority}
           complexity={complexity}

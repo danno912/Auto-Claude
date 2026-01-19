@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -9,18 +9,12 @@ import {
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING
 } from '../../../shared/constants';
-import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { SettingsSection } from './SettingsSection';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../ui/select';
-import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { AppSettings, AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { PhaseApiProfileConfig } from '../../../shared/types';
+import type { APIProfile } from '@shared/types/profile';
 
 /**
  * Icon mapping for agent profile icons
@@ -34,38 +28,51 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 const PHASE_KEYS: Array<keyof PhaseModelConfig> = ['spec', 'planning', 'coding', 'qa'];
+const MODEL_VALUES = new Set(AVAILABLE_MODELS.map((model) => model.value));
+const THINKING_VALUES = new Set(THINKING_LEVELS.map((level) => level.value));
 
 /**
  * Agent Profile Settings component
  * Displays preset agent profiles for quick model/thinking level configuration
  * All presets show phase configuration for full customization
  */
-export function AgentProfileSettings() {
-  const { t } = useTranslation('settings');
-  const settings = useSettingsStore((state) => state.settings);
-  const selectedProfileId = settings.selectedAgentProfile || 'auto';
-  const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+interface AgentProfileSettingsProps {
+  settings: AppSettings;
+  onSettingsChange: (settings: AppSettings) => void;
+}
 
-  // Find the selected profile
-  const selectedProfile = useMemo(() =>
-    DEFAULT_AGENT_PROFILES.find(p => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0],
+export function AgentProfileSettings({ settings, onSettingsChange }: AgentProfileSettingsProps) {
+  const { t } = useTranslation('settings');
+  const selectedProfileId = settings.selectedAgentProfile || 'auto';
+  const selectedProfile = useMemo(
+    () => DEFAULT_AGENT_PROFILES.find(p => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0],
     [selectedProfileId]
   );
+  const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+  const [apiProfiles, setApiProfiles] = useState<APIProfile[]>([]);
+  const [activeApiProfileId, setActiveApiProfileId] = useState<string | null>(null);
 
-  // Get profile's default phase config
   const profilePhaseModels = selectedProfile.phaseModels || DEFAULT_PHASE_MODELS;
   const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
+  const currentPhaseModels: PhaseModelConfig = useMemo(
+    () => ({ ...profilePhaseModels, ...(settings.customPhaseModels || {}) }),
+    [profilePhaseModels, settings.customPhaseModels]
+  );
+  const currentPhaseThinking: PhaseThinkingConfig = useMemo(
+    () => ({ ...profilePhaseThinking, ...(settings.customPhaseThinking || {}) }),
+    [profilePhaseThinking, settings.customPhaseThinking]
+  );
+  const currentPhaseApiProfiles: PhaseApiProfileConfig = useMemo(
+    () => settings.customPhaseApiProfiles || {},
+    [settings.customPhaseApiProfiles]
+  );
+  const defaultProfileValue = 'default';
+  const hasApiProfiles = apiProfiles.length > 0;
+  const apiProfileIds = useMemo(() => new Set(apiProfiles.map((profile) => profile.id)), [apiProfiles]);
 
-  // Get current phase config from settings (custom) or fall back to profile defaults
-  const currentPhaseModels: PhaseModelConfig = settings.customPhaseModels || profilePhaseModels;
-  const currentPhaseThinking: PhaseThinkingConfig = settings.customPhaseThinking || profilePhaseThinking;
-
-  /**
-   * Check if current config differs from the selected profile's defaults
-   */
   const hasCustomConfig = useMemo((): boolean => {
     if (!settings.customPhaseModels && !settings.customPhaseThinking) {
-      return false; // No custom settings, using profile defaults
+      return false;
     }
     return PHASE_KEYS.some(
       phase =>
@@ -74,71 +81,24 @@ export function AgentProfileSettings() {
     );
   }, [settings.customPhaseModels, settings.customPhaseThinking, currentPhaseModels, currentPhaseThinking, profilePhaseModels, profilePhaseThinking]);
 
-  const handleSelectProfile = async (profileId: string) => {
-    const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === profileId);
-    if (!profile) return;
-
-    // When selecting a preset, reset to that preset's defaults
-    const success = await saveSettings({
-      selectedAgentProfile: profileId,
-      // Clear custom settings to use profile defaults
-      customPhaseModels: undefined,
-      customPhaseThinking: undefined
-    });
-    if (!success) {
-      console.error('Failed to save agent profile selection');
-      return;
-    }
-  };
-
-  const handlePhaseModelChange = async (phase: keyof PhaseModelConfig, value: ModelTypeShort) => {
-    // Save as custom config (deviating from preset)
-    const newPhaseModels = { ...currentPhaseModels, [phase]: value };
-    await saveSettings({ customPhaseModels: newPhaseModels });
-  };
-
-  const handlePhaseThinkingChange = async (phase: keyof PhaseThinkingConfig, value: ThinkingLevel) => {
-    // Save as custom config (deviating from preset)
-    const newPhaseThinking = { ...currentPhaseThinking, [phase]: value };
-    await saveSettings({ customPhaseThinking: newPhaseThinking });
-  };
-
-  const handleResetToProfileDefaults = async () => {
-    // Reset to the selected profile's defaults
-    await saveSettings({
-      customPhaseModels: undefined,
-      customPhaseThinking: undefined
-    });
-  };
-
-  /**
-   * Get human-readable model label
-   */
   const getModelLabel = (modelValue: string): string => {
     const model = AVAILABLE_MODELS.find((m) => m.value === modelValue);
     return model?.label || modelValue;
   };
 
-  /**
-   * Get human-readable thinking level label
-   */
   const getThinkingLabel = (thinkingValue: string): string => {
     const level = THINKING_LEVELS.find((l) => l.value === thinkingValue);
     return level?.label || thinkingValue;
   };
 
-  /**
-   * Render a single profile card
-   */
   const renderProfileCard = (profile: AgentProfile) => {
     const isSelected = selectedProfileId === profile.id;
-    const isCustomized = isSelected && hasCustomConfig;
     const Icon = iconMap[profile.icon || 'Brain'] || Brain;
 
     return (
       <button
         key={profile.id}
-        onClick={() => handleSelectProfile(profile.id)}
+        onClick={() => onSettingsChange({ ...settings, selectedAgentProfile: profile.id })}
         className={cn(
           'relative w-full rounded-lg border p-4 text-left transition-all duration-200',
           'hover:border-primary/50 hover:shadow-sm',
@@ -147,14 +107,12 @@ export function AgentProfileSettings() {
             : 'border-border bg-card'
         )}
       >
-        {/* Selected indicator */}
         {isSelected && (
           <div className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
             <Check className="h-3 w-3 text-primary-foreground" />
           </div>
         )}
 
-        {/* Profile content */}
         <div className="flex items-start gap-3">
           <div
             className={cn(
@@ -173,17 +131,11 @@ export function AgentProfileSettings() {
           <div className="flex-1 min-w-0 pr-6">
             <div className="flex items-center gap-2">
               <h3 className="font-medium text-sm text-foreground">{profile.name}</h3>
-              {isCustomized && (
-                <span className="inline-flex items-center rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-                  {t('agentProfile.customized')}
-                </span>
-              )}
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
               {profile.description}
             </p>
 
-            {/* Model and thinking level badges */}
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {getModelLabel(profile.model)}
@@ -198,27 +150,83 @@ export function AgentProfileSettings() {
     );
   };
 
+  const handlePhaseModelChange = (phase: keyof PhaseModelConfig, value: ModelTypeShort) => {
+    if (currentPhaseModels[phase] === value) {
+      return;
+    }
+    const newPhaseModels = { ...currentPhaseModels, [phase]: value };
+    onSettingsChange({ ...settings, customPhaseModels: newPhaseModels });
+  };
+
+  const handlePhaseThinkingChange = (phase: keyof PhaseThinkingConfig, value: ThinkingLevel) => {
+    if (currentPhaseThinking[phase] === value) {
+      return;
+    }
+    const newPhaseThinking = { ...currentPhaseThinking, [phase]: value };
+    onSettingsChange({ ...settings, customPhaseThinking: newPhaseThinking });
+  };
+
+  const handleResetToProfileDefaults = () => {
+    onSettingsChange({
+      ...settings,
+      customPhaseModels: undefined,
+      customPhaseThinking: undefined
+    });
+  };
+
+  const handlePhaseApiProfileChange = (phase: keyof PhaseApiProfileConfig, value: string) => {
+    const normalizedValue = value === defaultProfileValue ? undefined : value;
+    if (currentPhaseApiProfiles[phase] === normalizedValue) {
+      return;
+    }
+    const nextProfiles = { ...currentPhaseApiProfiles };
+    if (normalizedValue) {
+      nextProfiles[phase] = normalizedValue;
+    } else {
+      delete nextProfiles[phase];
+    }
+    const hasOverrides = Object.values(nextProfiles).some(Boolean);
+    onSettingsChange({
+      ...settings,
+      customPhaseApiProfiles: hasOverrides ? nextProfiles : undefined
+    });
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    window.electronAPI
+      .getAPIProfiles()
+      .then((result: { success: boolean; data?: { profiles: APIProfile[]; activeProfileId: string | null } }) => {
+        if (!isMounted || !result.success || !result.data) {
+          return;
+        }
+        setApiProfiles(result.data.profiles);
+        setActiveApiProfileId(result.data.activeProfileId);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+
   return (
     <SettingsSection
       title={t('agentProfile.title')}
       description={t('agentProfile.sectionDescription')}
     >
       <div className="space-y-4">
-        {/* Description */}
         <div className="rounded-lg bg-muted/50 p-3">
           <p className="text-xs text-muted-foreground">
             {t('agentProfile.profilesInfo')}
           </p>
         </div>
 
-        {/* Profile cards - 2 column grid on larger screens */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {DEFAULT_AGENT_PROFILES.map(renderProfileCard)}
         </div>
 
-        {/* Phase Configuration - shown for all profiles */}
         <div className="mt-6 rounded-lg border border-border bg-card">
-          {/* Header - Collapsible */}
           <button
             type="button"
             onClick={() => setShowPhaseConfig(!showPhaseConfig)}
@@ -237,10 +245,8 @@ export function AgentProfileSettings() {
             )}
           </button>
 
-          {/* Phase Configuration Content */}
           {showPhaseConfig && (
             <div className="border-t border-border p-4 space-y-4">
-              {/* Reset button - shown when customized */}
               {hasCustomConfig && (
                 <div className="flex justify-end">
                   <Button
@@ -255,7 +261,6 @@ export function AgentProfileSettings() {
                 </div>
               )}
 
-              {/* Phase Configuration Grid */}
               <div className="space-y-4">
                 {PHASE_KEYS.map((phase) => (
                   <div key={phase} className="space-y-2">
@@ -268,50 +273,39 @@ export function AgentProfileSettings() {
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      {/* Model Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
-                        <Select
+                        <select
+                          className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground"
                           value={currentPhaseModels[phase]}
-                          onValueChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
+                          onChange={(event) => handlePhaseModelChange(phase, event.target.value as ModelTypeShort)}
                         >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AVAILABLE_MODELS.map((m) => (
-                              <SelectItem key={m.value} value={m.value}>
-                                {m.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {AVAILABLE_MODELS.map((m) => (
+                            <option key={m.value} value={m.value}>
+                              {m.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                      {/* Thinking Level Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
-                        <Select
+                        <select
+                          className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground"
                           value={currentPhaseThinking[phase]}
-                          onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
+                          onChange={(event) => handlePhaseThinkingChange(phase, event.target.value as ThinkingLevel)}
                         >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {THINKING_LEVELS.map((level) => (
-                              <SelectItem key={level.value} value={level.value}>
-                                {level.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          {THINKING_LEVELS.map((level) => (
+                            <option key={level.value} value={level.value}>
+                              {level.label}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Info note */}
               <p className="text-[10px] text-muted-foreground mt-4 pt-3 border-t border-border">
                 {t('agentProfile.phaseConfigNote')}
               </p>
@@ -319,6 +313,56 @@ export function AgentProfileSettings() {
           )}
         </div>
 
+        <div className="rounded-lg border border-border bg-card">
+          <div className="p-4">
+            <h4 className="font-medium text-sm text-foreground">{t('agentProfile.apiProfiles.title')}</h4>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {t('agentProfile.apiProfiles.description')}
+            </p>
+          </div>
+
+          {!hasApiProfiles && (
+            <div className="border-t border-border p-4">
+              <p className="text-xs text-muted-foreground">
+                {t('agentProfile.apiProfiles.noProfiles')}
+              </p>
+            </div>
+          )}
+
+          {hasApiProfiles && (
+            <div className="border-t border-border p-4 space-y-4">
+              {PHASE_KEYS.map((phase) => (
+                <div key={phase} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {t(`agentProfile.phases.${phase}.label`)}
+                  </Label>
+                  <select
+                    className="h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground"
+                    value={
+                      currentPhaseApiProfiles[phase] && apiProfileIds.has(currentPhaseApiProfiles[phase]!)
+                        ? currentPhaseApiProfiles[phase]
+                        : defaultProfileValue
+                    }
+                    onChange={(event) => handlePhaseApiProfileChange(phase, event.target.value)}
+                  >
+                    <option value={defaultProfileValue}>
+                      {activeApiProfileId
+                        ? t('agentProfile.apiProfiles.activeProfile', {
+                          name: apiProfiles.find((profile) => profile.id === activeApiProfileId)?.name || t('agentProfile.apiProfiles.useActive')
+                        })
+                        : t('agentProfile.apiProfiles.useActive')}
+                    </option>
+                    {apiProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.id}>
+                        {profile.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </SettingsSection>
   );

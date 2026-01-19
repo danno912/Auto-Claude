@@ -365,6 +365,34 @@ export async function loadSettings(): Promise<void> {
  */
 export async function saveSettings(updates: Partial<AppSettings>): Promise<boolean> {
   const store = useSettingsStore.getState();
+  const current = store.settings;
+
+  const isPlainObject = (value: unknown): value is Record<string, unknown> => (
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+  );
+
+  const shallowEqual = (a: unknown, b: unknown): boolean => {
+    if (Object.is(a, b)) {
+      return true;
+    }
+    if (!isPlainObject(a) || !isPlainObject(b)) {
+      return false;
+    }
+    const aKeys = Object.keys(a);
+    if (aKeys.length !== Object.keys(b).length) {
+      return false;
+    }
+    return aKeys.every((key) => Object.is(a[key], b[key]));
+  };
+
+  const hasChanges = Object.entries(updates).some(([key, nextValue]) => {
+    const currentValue = current[key as keyof AppSettings];
+    return !shallowEqual(currentValue, nextValue);
+  });
+
+  if (!hasChanges) {
+    return true;
+  }
 
   try {
     const result = await window.electronAPI.saveSettings(updates);

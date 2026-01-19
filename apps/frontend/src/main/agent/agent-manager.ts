@@ -1,17 +1,20 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { getPhaseAPIProfileEnv } from '../services/profile';
+import { projectStore } from '../project-store';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, PhaseApiProfileConfig } from '../../shared/types';
+import { getSpecsDir } from '../../shared/constants';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -77,6 +80,50 @@ export class AgentManager extends EventEmitter {
     });
   }
 
+  private resolveSpecDir(projectPath: string, specId: string, specDirOverride?: string): string | null {
+    if (specDirOverride) {
+      return specDirOverride;
+    }
+
+    const project = projectStore.getProjects().find((p) => p.path === projectPath);
+    const specsBaseDir = getSpecsDir(project?.autoBuildPath);
+    return path.join(projectPath, specsBaseDir, specId);
+  }
+
+  private readPhaseApiProfiles(specDir: string): PhaseApiProfileConfig | undefined {
+    const metadataPath = path.join(specDir, 'task_metadata.json');
+    if (!existsSync(metadataPath)) {
+      return undefined;
+    }
+
+    try {
+      const metadata = JSON.parse(readFileSync(metadataPath, 'utf-8'));
+      return metadata?.phaseApiProfiles;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async resolvePhaseApiProfileEnv(
+    projectPath: string,
+    specId: string,
+    metadata?: SpecCreationMetadata,
+    specDirOverride?: string
+  ): Promise<Record<string, string>> {
+    const phaseApiProfiles = metadata?.phaseApiProfiles;
+    if (phaseApiProfiles) {
+      return await getPhaseAPIProfileEnv(phaseApiProfiles);
+    }
+
+    const specDir = this.resolveSpecDir(projectPath, specId, specDirOverride);
+    if (!specDir) {
+      return {};
+    }
+
+    const filePhaseProfiles = this.readPhaseApiProfiles(specDir);
+    return await getPhaseAPIProfileEnv(filePhaseProfiles);
+  }
+
   /**
    * Configure paths for Python and auto-claude source
    */
@@ -133,6 +180,13 @@ export class AgentManager extends EventEmitter {
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+    const phaseApiEnv = await this.resolvePhaseApiProfileEnv(
+      projectPath,
+      taskId,
+      metadata,
+      specDir
+    );
+    const combinedEnvWithPhaseProfiles = { ...combinedEnv, ...phaseApiEnv };
 
     // spec_runner.py will auto-start run.py after spec creation completes
     const args = [specRunnerPath, '--task', taskDescription, '--project-dir', projectPath];
@@ -176,7 +230,7 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnvWithPhaseProfiles, 'task-execution');
   }
 
   /**
@@ -253,7 +307,7 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnvWithPhaseProfiles, 'task-execution');
   }
 
   /**
@@ -290,7 +344,7 @@ export class AgentManager extends EventEmitter {
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process');
+    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnvWithPhaseProfiles, 'qa-process');
   }
 
   /**

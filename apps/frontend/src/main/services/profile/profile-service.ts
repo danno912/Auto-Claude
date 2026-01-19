@@ -15,6 +15,48 @@ import Anthropic, {
 
 import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './profile-manager';
 import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
+import type { PhaseApiProfileConfig } from '@shared/types/task';
+
+const PROFILE_ENV_KEYS = [
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL'
+] as const;
+
+const PHASE_ENV_SUFFIXES: Record<keyof PhaseApiProfileConfig, string> = {
+  spec: 'SPEC',
+  planning: 'PLANNING',
+  coding: 'CODING',
+  qa: 'QA'
+};
+
+function buildAPIProfileEnv(profile: APIProfile | null | undefined): Record<string, string> {
+  if (!profile) {
+    return {};
+  }
+
+  const env = {
+    ANTHROPIC_BASE_URL: profile.baseUrl || '',
+    ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+    ANTHROPIC_MODEL: profile.models?.default || '',
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
+    ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
+    ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || ''
+  };
+
+  const filteredEnv: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    const trimmedValue = value?.trim();
+    if (trimmedValue) {
+      filteredEnv[key] = trimmedValue;
+    }
+  }
+
+  return filteredEnv;
+}
 
 /**
  * Input type for creating a profile (without id, createdAt, updatedAt)
@@ -272,27 +314,63 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
     return {};
   }
 
-  // Map profile fields to SDK env vars
-  const envVars: Record<string, string> = {
-    ANTHROPIC_BASE_URL: profile.baseUrl || '',
-    ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
-    ANTHROPIC_MODEL: profile.models?.default || '',
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
-    ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
-    ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
-  };
+  return buildAPIProfileEnv(profile);
+}
 
-  // Filter out empty/whitespace string values (only set env vars that have values)
-  // This handles empty strings, null, undefined, and whitespace-only values
-  const filteredEnvVars: Record<string, string> = {};
-  for (const [key, value] of Object.entries(envVars)) {
-    const trimmedValue = value?.trim();
-    if (trimmedValue && trimmedValue !== '') {
-      filteredEnvVars[key] = trimmedValue;
-    }
+/**
+ * Get environment variables for a specific API profile ID.
+ */
+export async function getAPIProfileEnvById(profileId: string): Promise<Record<string, string>> {
+  if (!profileId) {
+    return {};
   }
 
-  return filteredEnvVars;
+  const file = await loadProfilesFile();
+  const profile = file.profiles.find((p) => p.id === profileId);
+  return buildAPIProfileEnv(profile);
+}
+
+/**
+ * Get per-phase API profile environment variables (suffix-based overrides).
+ *
+ * Example env keys: ANTHROPIC_BASE_URL_PLANNING, ANTHROPIC_AUTH_TOKEN_CODING, etc.
+ */
+export async function getPhaseAPIProfileEnv(
+  phaseApiProfiles?: PhaseApiProfileConfig
+): Promise<Record<string, string>> {
+  if (!phaseApiProfiles) {
+    return {};
+  }
+
+  const file = await loadProfilesFile();
+  if (file.profiles.length === 0) {
+    return {};
+  }
+
+  const profileLookup = new Map(file.profiles.map((profile) => [profile.id, profile]));
+  const phaseEnv: Record<string, string> = {};
+
+  (Object.keys(PHASE_ENV_SUFFIXES) as Array<keyof PhaseApiProfileConfig>).forEach((phase) => {
+    const profileId = phaseApiProfiles[phase];
+    if (!profileId) {
+      return;
+    }
+
+    const profile = profileLookup.get(profileId);
+    if (!profile) {
+      return;
+    }
+
+    const baseEnv = buildAPIProfileEnv(profile);
+    for (const key of PROFILE_ENV_KEYS) {
+      const value = baseEnv[key];
+      if (value) {
+        phaseEnv[`${key}_${PHASE_ENV_SUFFIXES[phase]}`] = value;
+      }
+    }
+  });
+
+  return phaseEnv;
 }
 
 /**

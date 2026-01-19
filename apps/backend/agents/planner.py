@@ -100,6 +100,7 @@ async def run_followup_planner(
         spec_dir,
         planning_model,
         max_thinking_tokens=planning_thinking_budget,
+        phase="planning",
     )
 
     # Generate follow-up planner prompt
