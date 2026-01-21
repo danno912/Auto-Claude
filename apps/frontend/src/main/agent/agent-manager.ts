@@ -230,7 +230,13 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnvWithPhaseProfiles, 'task-execution');
+    await this.processManager.spawnProcess(
+      taskId,
+      autoBuildSource,
+      args,
+      combinedEnvWithPhaseProfiles,
+      'task-execution'
+    );
   }
 
   /**
@@ -280,6 +286,8 @@ export class AgentManager extends EventEmitter {
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+    const phaseApiEnv = await this.resolvePhaseApiProfileEnv(projectPath, specId);
+    const combinedEnvWithPhaseProfiles = { ...combinedEnv, ...phaseApiEnv };
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath];
 
@@ -341,10 +349,18 @@ export class AgentManager extends EventEmitter {
 
     // Get combined environment variables
     const combinedEnv = this.processManager.getCombinedEnv(projectPath);
+    const phaseApiEnv = await this.resolvePhaseApiProfileEnv(projectPath, specId);
+    const combinedEnvWithPhaseProfiles = { ...combinedEnv, ...phaseApiEnv };
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnvWithPhaseProfiles, 'qa-process');
+    await this.processManager.spawnProcess(
+      taskId,
+      autoBuildSource,
+      args,
+      combinedEnvWithPhaseProfiles,
+      'qa-process'
+    );
   }
 
   /**
